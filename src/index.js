@@ -1,3 +1,4 @@
+// server.js
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -21,10 +22,26 @@ const PORT = process.env.PORT || 4000;
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'letmein';
 const JWT_SECRET = process.env.JWT_SECRET || 'devsecret';
 
-app.use(cors({ origin: true, credentials: false }));
+const allowedOrigins = [
+  'http://localhost:3000',             // local dev
+  'https://www.adminkapilrajkc.me',   // production frontend
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps, curl or same-origin)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      return callback(null, true);
+    } else {
+      return callback(new Error('CORS policy: This origin is not allowed'), false);
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
-// In-memory data stores
+// In-memory data stores (demo)
 let projects = [
   { id: 'p1', name: 'Website Revamp', status: 'on-track', completionPercent: 72.4, startDate: '2025-09-01', endDate: '2026-02-15' },
   { id: 'p2', name: 'Mobile App', status: 'at-risk', completionPercent: 41.1, startDate: '2025-08-10', endDate: '2026-04-01' },
@@ -75,6 +92,9 @@ async function ensureDemoUser() {
 }
 
 // Auth endpoints
+app.get('/', async (req, res) => {
+  res.send('Hello Developer Kapil 👨‍💻 — Backend API is running 🚀');
+});
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ message: 'Email & password required' });
@@ -237,7 +257,7 @@ app.put('/api/tasks/:id', auth(), async (req, res) => {
   if (!updated) return res.status(404).json({ message: 'Not found' });
   res.json(updated);
 });
-app.delete('/api/tasks/:id', auth(), async (req, res) => {
+app.delete('/api/tasks/:id', auth('manager'), async (req, res) => {
   const deleted = await Task.findByIdAndDelete(req.params.id);
   if (!deleted) return res.status(404).json({ message: 'Not found' });
   res.status(204).end();
